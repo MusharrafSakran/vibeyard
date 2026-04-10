@@ -35,7 +35,7 @@ vi.mock('fs', () => ({
 
 import * as fs from 'fs';
 import * as child_process from 'child_process';
-import { spawnPty, writePty, resizePty, killPty, getPtyCwd, getRegistryPath, getFullPath, resetPathCache } from './pty-manager';
+import { spawnPty, writePty, resizePty, killPty, getPtyCwd, getRegistryPath, getFullPath, resetPathCache, resolveWindowsShell } from './pty-manager';
 import { initProviders } from './providers/registry';
 
 const mockExistsSync = vi.mocked(fs.existsSync);
@@ -156,11 +156,20 @@ describe('spawnPty', () => {
     freshInit();
     freshSpawnPty('s1', '/project', null, false, '', 'claude', undefined, vi.fn(), vi.fn());
 
-    expect(mockSpawn).toHaveBeenCalledWith(
-      expectedPath,
-      [],
-      expect.any(Object),
-    );
+    if (isWin) {
+      // On Windows, .cmd files are wrapped with cmd.exe /c
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'cmd.exe',
+        ['/c', expectedPath],
+        expect.any(Object),
+      );
+    } else {
+      expect(mockSpawn).toHaveBeenCalledWith(
+        expectedPath,
+        [],
+        expect.any(Object),
+      );
+    }
   });
 
   it('sets required env vars', () => {
@@ -359,6 +368,58 @@ describe('getRegistryPath', () => {
   } else {
     it('returns empty string on non-Windows', () => {
       expect(getRegistryPath()).toBe('');
+    });
+  }
+});
+
+describe('resolveWindowsShell', () => {
+  if (isWin) {
+    it('wraps .cmd files with cmd.exe /c', () => {
+      const result = resolveWindowsShell('C:\\Users\\test\\npm\\claude.cmd', ['--help']);
+      expect(result).toEqual({
+        shell: 'cmd.exe',
+        args: ['/c', 'C:\\Users\\test\\npm\\claude.cmd', '--help'],
+      });
+    });
+
+    it('wraps .bat files with cmd.exe /c', () => {
+      const result = resolveWindowsShell('C:\\tools\\run.bat', ['-v']);
+      expect(result).toEqual({
+        shell: 'cmd.exe',
+        args: ['/c', 'C:\\tools\\run.bat', '-v'],
+      });
+    });
+
+    it('wraps .ps1 files with powershell.exe', () => {
+      const result = resolveWindowsShell('C:\\scripts\\tool.ps1', ['arg1']);
+      expect(result).toEqual({
+        shell: 'powershell.exe',
+        args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', 'C:\\scripts\\tool.ps1', 'arg1'],
+      });
+    });
+
+    it('passes .exe files through unchanged', () => {
+      const result = resolveWindowsShell('C:\\tools\\claude.exe', ['--help']);
+      expect(result).toEqual({
+        shell: 'C:\\tools\\claude.exe',
+        args: ['--help'],
+      });
+    });
+
+    it('passes bare binary names through unchanged', () => {
+      const result = resolveWindowsShell('claude', ['--help']);
+      expect(result).toEqual({
+        shell: 'claude',
+        args: ['--help'],
+      });
+    });
+  } else {
+    it('passes through unchanged on non-Windows', () => {
+      const result = resolveWindowsShell('/usr/local/bin/claude', ['--help']);
+      expect(result).toEqual({
+        shell: '/usr/local/bin/claude',
+        args: ['--help'],
+      });
     });
   }
 });

@@ -121,6 +121,28 @@ export function getFullPath(): string {
   return cachedFullPath;
 }
 
+/**
+ * On Windows, .cmd/.bat and .ps1 files cannot be spawned directly by node-pty
+ * (CreateProcess returns error 193). Wrap them via cmd.exe or powershell.exe.
+ */
+export function resolveWindowsShell(
+  shell: string,
+  args: string[]
+): { shell: string; args: string[] } {
+  if (!isWin) return { shell, args };
+  const ext = path.extname(shell).toLowerCase();
+  if (ext === '.cmd' || ext === '.bat') {
+    return { shell: 'cmd.exe', args: ['/c', shell, ...args] };
+  }
+  if (ext === '.ps1') {
+    return {
+      shell: 'powershell.exe',
+      args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', shell, ...args],
+    };
+  }
+  return { shell, args };
+}
+
 export function spawnPty(
   sessionId: string,
   cwd: string,
@@ -143,9 +165,10 @@ export function spawnPty(
   const provider = getProvider(providerId);
   const env = provider.buildEnv(sessionId, { ...process.env } as Record<string, string>);
   const args = provider.buildArgs({ cliSessionId, isResume, extraArgs, initialPrompt });
-  const shell = provider.resolveBinaryPath();
+  const resolvedShell = provider.resolveBinaryPath();
+  const { shell, args: spawnArgs } = resolveWindowsShell(resolvedShell, args);
 
-  const ptyProcess = pty.spawn(shell, args, {
+  const ptyProcess = pty.spawn(shell, spawnArgs, {
     name: 'xterm-256color',
     cols: 120,
     rows: 30,
