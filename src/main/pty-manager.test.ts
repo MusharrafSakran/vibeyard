@@ -406,10 +406,18 @@ describe('resolveWindowsShell', () => {
       });
     });
 
-    it('passes bare binary names through unchanged', () => {
+    it('wraps bare binary names with cmd.exe /c', () => {
       const result = resolveWindowsShell('claude', ['--help']);
       expect(result).toEqual({
-        shell: 'claude',
+        shell: 'cmd.exe',
+        args: ['/c', 'claude', '--help'],
+      });
+    });
+
+    it('passes absolute extensionless paths through unchanged', () => {
+      const result = resolveWindowsShell('C:\\tools\\claude', ['--help']);
+      expect(result).toEqual({
+        shell: 'C:\\tools\\claude',
         args: ['--help'],
       });
     });

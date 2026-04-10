@@ -140,6 +140,11 @@ export function resolveWindowsShell(
       args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', shell, ...args],
     };
   }
+  // Bare name (no extension) — also wrap with cmd.exe so it can resolve
+  // PATH and execute .cmd shims that CreateProcess cannot handle.
+  if (ext === '' && !path.isAbsolute(shell)) {
+    return { shell: 'cmd.exe', args: ['/c', shell, ...args] };
+  }
   return { shell, args };
 }
 
