@@ -18,17 +18,20 @@ export function createAppMenu(debugMode = false): void {
         {
           label: 'New Project',
           accelerator: 'CmdOrCtrl+Shift+P',
+          registerAccelerator: false,
           click: () => sendToRenderer('menu:new-project'),
         },
         {
           label: 'New Session',
           accelerator: 'CmdOrCtrl+Shift+N',
+          registerAccelerator: false,
           click: () => sendToRenderer('menu:new-session'),
         },
         { type: 'separator' },
         isMac ? {
           label: 'Close Session',
           accelerator: 'CmdOrCtrl+W',
+          registerAccelerator: false,
           click: () => sendToRenderer('menu:close-session'),
         } : { role: 'quit' as const },
         ...(isMac ? [{
@@ -71,48 +74,33 @@ export function createAppMenu(debugMode = false): void {
         {
           label: 'Toggle Split Mode',
           accelerator: 'CmdOrCtrl+\\',
+          registerAccelerator: false,
           click: () => sendToRenderer('menu:toggle-split'),
         },
         { type: 'separator' },
         {
           label: 'Usage Stats',
           accelerator: 'CmdOrCtrl+Shift+U',
+          registerAccelerator: false,
           click: () => sendToRenderer('menu:usage-stats'),
         },
         {
           label: 'Toggle Session Inspector',
           accelerator: 'CmdOrCtrl+Shift+I',
+          registerAccelerator: false,
           click: () => sendToRenderer('menu:toggle-inspector'),
         },
         ...(debugMode ? [
           {
             label: 'Toggle Debug Panel',
             accelerator: 'CmdOrCtrl+Shift+D',
+            registerAccelerator: false,
             click: () => sendToRenderer('menu:toggle-debug'),
           },
           { type: 'separator' as const },
           { role: 'toggleDevTools' as const },
           { role: 'reload' as const },
         ] : []),
-        // Hidden session-switching shortcuts (no visible menu)
-        {
-          label: 'Next Session',
-          accelerator: 'CmdOrCtrl+Shift+]',
-          visible: false,
-          click: () => sendToRenderer('menu:next-session'),
-        },
-        {
-          label: 'Previous Session',
-          accelerator: 'CmdOrCtrl+Shift+[',
-          visible: false,
-          click: () => sendToRenderer('menu:prev-session'),
-        },
-        ...Array.from({ length: 9 }, (_, i) => ({
-          label: `Session ${i + 1}`,
-          accelerator: `CmdOrCtrl+${i + 1}`,
-          visible: false,
-          click: () => sendToRenderer('menu:goto-session', i),
-        })),
       ],
     },
   ];

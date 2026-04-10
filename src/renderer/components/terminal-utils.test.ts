@@ -1,8 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockMatchesAnyShortcut = vi.fn(() => false);
+const { mockMatchesAnyShortcut, mockPlatform } = vi.hoisted(() => ({
+  mockMatchesAnyShortcut: vi.fn(() => false),
+  mockPlatform: { isMac: false, isWin: false, isLinux: true },
+}));
 vi.mock('../shortcuts.js', () => ({
   shortcutManager: { matchesAnyShortcut: (...args: unknown[]) => mockMatchesAnyShortcut(...args) },
+}));
+vi.mock('../platform.js', () => ({
+  get isMac() { return mockPlatform.isMac; },
+  get isWin() { return mockPlatform.isWin; },
+  get isLinux() { return mockPlatform.isLinux; },
 }));
 
 import { attachClipboardCopyHandler } from './terminal-utils.js';
@@ -39,7 +47,11 @@ beforeEach(() => {
 });
 
 describe('attachClipboardCopyHandler (macOS)', () => {
-  beforeEach(() => stubPlatform('MacIntel'));
+  beforeEach(() => {
+    stubPlatform('MacIntel');
+    mockPlatform.isMac = true;
+    mockPlatform.isWin = false;
+  });
 
   it('copies selected text to clipboard on Ctrl+Shift+C keydown', () => {
     const terminal = new FakeTerminal();
@@ -141,7 +153,11 @@ describe('attachClipboardCopyHandler (macOS)', () => {
 });
 
 describe('attachClipboardCopyHandler (Windows)', () => {
-  beforeEach(() => stubPlatform('Win32'));
+  beforeEach(() => {
+    stubPlatform('Win32');
+    mockPlatform.isMac = false;
+    mockPlatform.isWin = true;
+  });
 
   it('Ctrl+C copies selection and returns false', () => {
     const terminal = new FakeTerminal();
@@ -258,7 +274,11 @@ describe('attachClipboardCopyHandler (Windows)', () => {
 });
 
 describe('attachClipboardCopyHandler app shortcut suppression', () => {
-  beforeEach(() => stubPlatform('Win32'));
+  beforeEach(() => {
+    stubPlatform('Win32');
+    mockPlatform.isMac = false;
+    mockPlatform.isWin = true;
+  });
 
   it('returns false when key matches a registered app shortcut', () => {
     const terminal = new FakeTerminal();

@@ -1,4 +1,5 @@
 import { appState } from './state.js';
+import { isMac } from './platform.js';
 
 export interface ShortcutDef {
   id: string;
@@ -42,9 +43,10 @@ export const SHORTCUT_DEFAULTS: ShortcutDefault[] = [
   { id: 'find-in-terminal', label: 'Find', category: 'Search & Help', defaultKeys: 'CmdOrCtrl+F' },
   { id: 'goto-line', label: 'Go to Line', category: 'Search & Help', defaultKeys: 'CmdOrCtrl+L' },
   { id: 'help', label: 'Help', category: 'Search & Help', defaultKeys: 'F1' },
+  { id: 'close-session', label: 'Close Session', category: 'Sessions', defaultKeys: 'CmdOrCtrl+W' },
+  { id: 'usage-stats', label: 'Usage Stats', category: 'Panels', defaultKeys: 'CmdOrCtrl+Shift+U' },
+  { id: 'toggle-inspector', label: 'Toggle Session Inspector', category: 'Panels', defaultKeys: 'CmdOrCtrl+Shift+I' },
 ];
-
-const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
 /** Convert accelerator string to platform-specific display string */
 export function displayKeys(accelerator: string): string {

@@ -4,8 +4,7 @@ import { setPendingPrompt } from '../terminal-pane.js';
 import type { BrowserTabInstance } from './types.js';
 import { positionPopover } from './popover.js';
 import { getViewportContext } from './viewport.js';
-
-const isWin = navigator.platform.toUpperCase().startsWith('WIN');
+import { isWin } from '../../platform.js';
 
 export function toggleDrawMode(instance: BrowserTabInstance): void {
   instance.drawMode = !instance.drawMode;

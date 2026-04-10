@@ -1,11 +1,8 @@
 import type { Terminal } from '@xterm/xterm';
 import { shortcutManager } from '../shortcuts.js';
+import { isWin } from '../platform.js';
 
 type ExtraKeyHandler = (e: KeyboardEvent) => boolean | undefined;
-
-function isWindows(): boolean {
-  return typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('WIN') >= 0;
-}
 
 /**
  * Attaches shared key event handling to a terminal:
@@ -39,7 +36,7 @@ export function attachClipboardCopyHandler(
     }
 
     // Windows: Ctrl+C with selection → copy; without selection → SIGINT
-    if (isWindows() && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && e.key === 'c') {
+    if (isWin && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && e.key === 'c') {
       const selection = terminal.getSelection();
       if (selection) {
         if (e.type === 'keydown') navigator.clipboard.writeText(selection).catch(() => {});
@@ -49,7 +46,7 @@ export function attachClipboardCopyHandler(
     }
 
     // Windows: Ctrl+V → async paste clipboard to PTY
-    if (isWindows() && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && e.key === 'v' && writeToPty) {
+    if (isWin && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && e.key === 'v' && writeToPty) {
       if (e.type === 'keydown') {
         navigator.clipboard.readText().then((text) => {
           if (!text) return;
