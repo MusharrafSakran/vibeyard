@@ -1,4 +1,5 @@
 import type { Terminal } from '@xterm/xterm';
+import { shortcutManager } from '../shortcuts.js';
 
 type ExtraKeyHandler = (e: KeyboardEvent) => boolean | undefined;
 
@@ -58,8 +59,12 @@ export function attachClipboardCopyHandler(
           writeToPty(bp ? `\x1b[200~${text}\x1b[201~` : text);
         }).catch(() => {});
       }
+      e.preventDefault(); // prevent native paste event from firing
       return false; // suppress \x16
     }
+
+    // Let registered app shortcuts bubble to document listener
+    if (shortcutManager.matchesAnyShortcut(e)) return false;
 
     return extend?.(e) ?? true;
   });

@@ -230,6 +230,16 @@ export class ShortcutManager {
     }
     return false;
   }
+
+  /** Check if a keyboard event matches any registered shortcut (without executing) */
+  matchesAnyShortcut(e: KeyboardEvent): boolean {
+    const overrides = appState.preferences.keybindings ?? {};
+    for (const shortcut of this.shortcuts) {
+      const keys = overrides[shortcut.id] ?? shortcut.defaultKeys;
+      if (matchesAccelerator(e, keys)) return true;
+    }
+    return false;
+  }
 }
 
 export const shortcutManager = new ShortcutManager();

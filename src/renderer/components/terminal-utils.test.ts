@@ -1,4 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockMatchesAnyShortcut = vi.fn(() => false);
+vi.mock('../shortcuts.js', () => ({
+  shortcutManager: { matchesAnyShortcut: (...args: unknown[]) => mockMatchesAnyShortcut(...args) },
+}));
+
 import { attachClipboardCopyHandler } from './terminal-utils.js';
 
 const mockClipboardWrite = vi.fn().mockResolvedValue(undefined);
@@ -29,6 +35,7 @@ function stubPlatform(platform: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   mockClipboardRead.mockResolvedValue('');
+  mockMatchesAnyShortcut.mockReturnValue(false);
 });
 
 describe('attachClipboardCopyHandler (macOS)', () => {
@@ -175,10 +182,22 @@ describe('attachClipboardCopyHandler (Windows)', () => {
     mockClipboardRead.mockResolvedValue('pasted text');
     attachClipboardCopyHandler(terminal as any, undefined, writeToPty);
 
-    const result = terminal.simulateKey({ ctrlKey: true, key: 'v', type: 'keydown' });
+    const result = terminal.simulateKey({ ctrlKey: true, key: 'v', type: 'keydown', preventDefault: vi.fn() });
 
     expect(result).toBe(false);
     await vi.waitFor(() => expect(writeToPty).toHaveBeenCalledWith('pasted text'));
+  });
+
+  it('Ctrl+V calls preventDefault to suppress native paste event', () => {
+    const terminal = new FakeTerminal();
+    const writeToPty = vi.fn();
+    const preventDefault = vi.fn();
+    mockClipboardRead.mockResolvedValue('text');
+    attachClipboardCopyHandler(terminal as any, undefined, writeToPty);
+
+    terminal.simulateKey({ ctrlKey: true, key: 'v', type: 'keydown', preventDefault });
+
+    expect(preventDefault).toHaveBeenCalled();
   });
 
   it('Ctrl+V wraps text in bracketed paste escapes when mode is enabled', async () => {
@@ -188,7 +207,7 @@ describe('attachClipboardCopyHandler (Windows)', () => {
     mockClipboardRead.mockResolvedValue('pasted');
     attachClipboardCopyHandler(terminal as any, undefined, writeToPty);
 
-    terminal.simulateKey({ ctrlKey: true, key: 'v', type: 'keydown' });
+    terminal.simulateKey({ ctrlKey: true, key: 'v', type: 'keydown', preventDefault: vi.fn() });
 
     await vi.waitFor(() => expect(writeToPty).toHaveBeenCalledWith('\x1b[200~pasted\x1b[201~'));
   });
@@ -199,7 +218,7 @@ describe('attachClipboardCopyHandler (Windows)', () => {
     mockClipboardRead.mockResolvedValue('');
     attachClipboardCopyHandler(terminal as any, undefined, writeToPty);
 
-    terminal.simulateKey({ ctrlKey: true, key: 'v', type: 'keydown' });
+    terminal.simulateKey({ ctrlKey: true, key: 'v', type: 'keydown', preventDefault: vi.fn() });
 
     await Promise.resolve();
     expect(writeToPty).not.toHaveBeenCalled();
@@ -220,7 +239,7 @@ describe('attachClipboardCopyHandler (Windows)', () => {
     mockClipboardRead.mockResolvedValue('text');
     attachClipboardCopyHandler(terminal as any, undefined, writeToPty);
 
-    terminal.simulateKey({ ctrlKey: true, key: 'v', type: 'keyup' });
+    terminal.simulateKey({ ctrlKey: true, key: 'v', type: 'keyup', preventDefault: vi.fn() });
 
     await Promise.resolve();
     expect(writeToPty).not.toHaveBeenCalled();
@@ -235,5 +254,29 @@ describe('attachClipboardCopyHandler (Windows)', () => {
 
     expect(result).toBe(false);
     expect(mockClipboardWrite).toHaveBeenCalledWith('shift-copy');
+  });
+});
+
+describe('attachClipboardCopyHandler app shortcut suppression', () => {
+  beforeEach(() => stubPlatform('Win32'));
+
+  it('returns false when key matches a registered app shortcut', () => {
+    const terminal = new FakeTerminal();
+    mockMatchesAnyShortcut.mockReturnValue(true);
+    attachClipboardCopyHandler(terminal as any);
+
+    const result = terminal.simulateKey({ ctrlKey: true, key: 'j', type: 'keydown' });
+
+    expect(result).toBe(false);
+  });
+
+  it('falls through to default when key does not match any shortcut', () => {
+    const terminal = new FakeTerminal();
+    mockMatchesAnyShortcut.mockReturnValue(false);
+    attachClipboardCopyHandler(terminal as any);
+
+    const result = terminal.simulateKey({ key: 'a', type: 'keydown' });
+
+    expect(result).toBe(true);
   });
 });
