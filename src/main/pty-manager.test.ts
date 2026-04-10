@@ -34,7 +34,8 @@ vi.mock('fs', () => ({
 }));
 
 import * as fs from 'fs';
-import { spawnPty, writePty, resizePty, killPty, getPtyCwd } from './pty-manager';
+import * as child_process from 'child_process';
+import { spawnPty, writePty, resizePty, killPty, getPtyCwd, getRegistryPath, getFullPath, resetPathCache } from './pty-manager';
 import { initProviders } from './providers/registry';
 
 const mockExistsSync = vi.mocked(fs.existsSync);
@@ -295,4 +296,69 @@ describe('getPtyCwd', () => {
     const result = await getPtyCwd('s2');
     expect(result).toBeNull();
   });
+});
+
+const mockExecSync = vi.mocked(child_process.execSync);
+
+describe('getRegistryPath', () => {
+  beforeEach(() => {
+    resetPathCache();
+  });
+
+  if (isWin) {
+    it('parses REG_SZ registry output', () => {
+      mockExecSync
+        .mockReturnValueOnce(
+          '\r\nHKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment\r\n    Path    REG_SZ    C:\\Windows\\system32;C:\\Windows\r\n\r\n',
+        )
+        .mockReturnValueOnce(
+          '\r\nHKCU\\Environment\r\n    Path    REG_SZ    C:\\Users\\test\\AppData\\Roaming\\npm\r\n\r\n',
+        );
+
+      const result = getRegistryPath();
+      expect(result).toContain('C:\\Windows\\system32;C:\\Windows');
+      expect(result).toContain('C:\\Users\\test\\AppData\\Roaming\\npm');
+    });
+
+    it('expands %VAR% references in REG_EXPAND_SZ values', () => {
+      process.env.SystemRoot = 'C:\\Windows';
+      process.env.USERPROFILE = 'C:\\Users\\test';
+
+      mockExecSync
+        .mockReturnValueOnce(
+          '    Path    REG_EXPAND_SZ    %SystemRoot%\\system32;%SystemRoot%\r\n',
+        )
+        .mockReturnValueOnce(
+          '    Path    REG_EXPAND_SZ    %USERPROFILE%\\AppData\\Roaming\\npm\r\n',
+        );
+
+      const result = getRegistryPath();
+      expect(result).toContain('C:\\Windows\\system32');
+      expect(result).toContain('C:\\Users\\test\\AppData\\Roaming\\npm');
+      expect(result).not.toContain('%SystemRoot%');
+      expect(result).not.toContain('%USERPROFILE%');
+    });
+
+    it('returns empty string when registry queries fail', () => {
+      mockExecSync.mockImplementation(() => { throw new Error('access denied'); });
+
+      const result = getRegistryPath();
+      expect(result).toBe('');
+    });
+
+    it('handles partial failure (system path fails, user path succeeds)', () => {
+      mockExecSync
+        .mockImplementationOnce(() => { throw new Error('access denied'); })
+        .mockReturnValueOnce(
+          '    Path    REG_SZ    C:\\Users\\test\\AppData\\Roaming\\npm\r\n',
+        );
+
+      const result = getRegistryPath();
+      expect(result).toContain('C:\\Users\\test\\AppData\\Roaming\\npm');
+    });
+  } else {
+    it('returns empty string on non-Windows', () => {
+      expect(getRegistryPath()).toBe('');
+    });
+  }
 });

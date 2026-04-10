@@ -9,7 +9,11 @@ const COMMON_BIN_DIRS = isWin
   ? [
       path.join(os.homedir(), 'AppData', 'Roaming', 'npm'),
       path.join(os.homedir(), 'AppData', 'Local', 'Programs'),
+      path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'claude'),
       path.join(os.homedir(), '.local', 'bin'),
+      path.join(os.homedir(), 'scoop', 'shims'),
+      path.join(os.homedir(), '.volta', 'bin'),
+      path.join(process.env.ProgramData || 'C:\\ProgramData', 'chocolatey', 'bin'),
     ]
   : [
       '/usr/local/bin',
@@ -49,6 +53,28 @@ function whichBinary(binaryName: string, envPath: string): string | null {
   }
 }
 
+// Cached result of `npm prefix -g` (Windows only, avoids repeated subprocess spawns)
+let cachedNpmPrefix: string | null | undefined;
+
+function getNpmGlobalPrefix(fullPath: string): string | null {
+  if (!isWin) return null;
+  if (cachedNpmPrefix !== undefined) return cachedNpmPrefix;
+  try {
+    cachedNpmPrefix = execSync('npm prefix -g', {
+      encoding: 'utf-8', timeout: 5000, windowsHide: true,
+      env: { ...process.env, PATH: fullPath },
+    }).trim() || null;
+  } catch {
+    cachedNpmPrefix = null;
+  }
+  return cachedNpmPrefix;
+}
+
+function findViaNpmPrefix(binaryName: string, fullPath: string): string | null {
+  const prefix = getNpmGlobalPrefix(fullPath);
+  return prefix ? findBinaryInDir(prefix, binaryName) : null;
+}
+
 export function resolveBinary(binaryName: string, cache: { path: string | null }): string {
   if (cache.path) return cache.path;
 
@@ -68,6 +94,9 @@ export function resolveBinary(binaryName: string, cache: { path: string | null }
     return resolved;
   }
 
+  const npmFound = findViaNpmPrefix(binaryName, fullPath);
+  if (npmFound) { cache.path = npmFound; return npmFound; }
+
   cache.path = binaryName;
   return binaryName;
 }
@@ -81,7 +110,10 @@ export function validateBinaryExists(
     if (findBinaryInDir(dir, binaryName)) return { ok: true, message: '' };
   }
 
-  if (whichBinary(binaryName, getFullPath())) return { ok: true, message: '' };
+  const fullPath = getFullPath();
+  if (whichBinary(binaryName, fullPath)) return { ok: true, message: '' };
+
+  if (findViaNpmPrefix(binaryName, fullPath)) return { ok: true, message: '' };
 
   return {
     ok: false,
