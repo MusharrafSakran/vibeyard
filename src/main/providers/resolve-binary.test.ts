@@ -13,6 +13,7 @@ vi.mock('os', () => ({
 
 vi.mock('fs', () => ({
   existsSync: vi.fn(() => false),
+  statSync: vi.fn(() => { throw new Error('ENOENT'); }),
 }));
 
 // Mock platform as Windows for these tests
@@ -30,18 +31,23 @@ vi.mock('../pty-manager', () => ({
 import * as fs from 'fs';
 import { resolveBinary, validateBinaryExists } from './resolve-binary';
 
-const mockExistsSync = vi.mocked(fs.existsSync);
+const mockStatSync = vi.mocked(fs.statSync);
+
+const fileStat = { isFile: () => true } as fs.Stats;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockExistsSync.mockReturnValue(false);
+  mockStatSync.mockImplementation(() => { throw new Error('ENOENT'); });
   mockExecSync.mockImplementation(() => { throw new Error('not found'); });
 });
 
 describe('resolveBinary (Windows)', () => {
   it('checks expanded candidate dirs including scoop shims', () => {
     const scoopPath = path.join('C:\\Users\\test', 'scoop', 'shims', 'claude.cmd');
-    mockExistsSync.mockImplementation((p) => String(p) === scoopPath);
+    mockStatSync.mockImplementation((p) => {
+      if (String(p) === scoopPath) return fileStat;
+      throw new Error('ENOENT');
+    });
 
     const cache = { path: null as string | null };
     const result = resolveBinary('claude', cache);
@@ -52,7 +58,10 @@ describe('resolveBinary (Windows)', () => {
 
   it('checks volta bin directory', () => {
     const voltaPath = path.join('C:\\Users\\test', '.volta', 'bin', 'claude.cmd');
-    mockExistsSync.mockImplementation((p) => String(p) === voltaPath);
+    mockStatSync.mockImplementation((p) => {
+      if (String(p) === voltaPath) return fileStat;
+      throw new Error('ENOENT');
+    });
 
     const cache = { path: null as string | null };
     const result = resolveBinary('claude', cache);
@@ -62,7 +71,10 @@ describe('resolveBinary (Windows)', () => {
 
   it('checks standalone installer subdirectory', () => {
     const standalonePath = path.join('C:\\Users\\test', 'AppData', 'Local', 'Programs', 'claude', 'claude.cmd');
-    mockExistsSync.mockImplementation((p) => String(p) === standalonePath);
+    mockStatSync.mockImplementation((p) => {
+      if (String(p) === standalonePath) return fileStat;
+      throw new Error('ENOENT');
+    });
 
     const cache = { path: null as string | null };
     const result = resolveBinary('claude', cache);
@@ -72,7 +84,10 @@ describe('resolveBinary (Windows)', () => {
 
   it('checks chocolatey bin directory', () => {
     const chocoPath = path.join(process.env.ProgramData || 'C:\\ProgramData', 'chocolatey', 'bin', 'claude.cmd');
-    mockExistsSync.mockImplementation((p) => String(p) === chocoPath);
+    mockStatSync.mockImplementation((p) => {
+      if (String(p) === chocoPath) return fileStat;
+      throw new Error('ENOENT');
+    });
 
     const cache = { path: null as string | null };
     const result = resolveBinary('claude', cache);
@@ -85,7 +100,10 @@ describe('resolveBinary (Windows)', () => {
     const customPath = path.join(customPrefix, 'claude.cmd');
 
     // All static candidates fail, where fails
-    mockExistsSync.mockImplementation((p) => String(p) === customPath);
+    mockStatSync.mockImplementation((p) => {
+      if (String(p) === customPath) return fileStat;
+      throw new Error('ENOENT');
+    });
     mockExecSync.mockImplementation((cmd: string) => {
       if (typeof cmd === 'string' && cmd.startsWith('npm prefix')) return `${customPrefix}\n`;
       throw new Error('not found');
@@ -109,14 +127,17 @@ describe('resolveBinary (Windows)', () => {
     const result = resolveBinary('claude', cache);
 
     expect(result).toBe('C:\\cached\\claude.cmd');
-    expect(mockExistsSync).not.toHaveBeenCalled();
+    expect(mockStatSync).not.toHaveBeenCalled();
   });
 });
 
 describe('validateBinaryExists (Windows)', () => {
   it('returns ok when found in expanded candidate dirs', () => {
     const scoopPath = path.join('C:\\Users\\test', 'scoop', 'shims', 'claude.cmd');
-    mockExistsSync.mockImplementation((p) => String(p) === scoopPath);
+    mockStatSync.mockImplementation((p) => {
+      if (String(p) === scoopPath) return fileStat;
+      throw new Error('ENOENT');
+    });
 
     const result = validateBinaryExists('claude', 'Claude Code CLI', 'npm install -g @anthropic-ai/claude-code');
     expect(result.ok).toBe(true);
@@ -126,7 +147,10 @@ describe('validateBinaryExists (Windows)', () => {
     const customPrefix = 'D:\\custom-npm';
     const customPath = path.join(customPrefix, 'claude.cmd');
 
-    mockExistsSync.mockImplementation((p) => String(p) === customPath);
+    mockStatSync.mockImplementation((p) => {
+      if (String(p) === customPath) return fileStat;
+      throw new Error('ENOENT');
+    });
     mockExecSync.mockImplementation((cmd: string) => {
       if (typeof cmd === 'string' && cmd.startsWith('npm prefix')) return `${customPrefix}\n`;
       throw new Error('not found');

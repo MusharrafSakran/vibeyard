@@ -27,6 +27,7 @@ vi.mock('os', () => ({
 
 vi.mock('fs', () => ({
   existsSync: vi.fn(() => false),
+  statSync: vi.fn(() => { throw new Error('ENOENT'); }),
   mkdirSync: vi.fn(),
   writeFileSync: vi.fn(),
   readFileSync: vi.fn(() => { throw new Error('ENOENT'); }),
@@ -39,6 +40,8 @@ import { spawnPty, writePty, resizePty, killPty, getPtyCwd, getRegistryPath, get
 import { initProviders } from './providers/registry';
 
 const mockExistsSync = vi.mocked(fs.existsSync);
+const mockStatSync = vi.mocked(fs.statSync);
+const fileStat = { isFile: () => true } as fs.Stats;
 
 function createMockPtyProcess() {
   const dataCallbacks: ((data: string) => void)[] = [];
@@ -147,7 +150,10 @@ describe('spawnPty', () => {
     const expectedPath = isWin
       ? path.join('/mock/home', 'AppData', 'Roaming', 'npm', 'claude.cmd')
       : '/usr/local/bin/claude';
-    mockExistsSync.mockImplementation((p) => String(p) === expectedPath);
+    mockStatSync.mockImplementation((p) => {
+      if (String(p) === expectedPath) return fileStat;
+      throw new Error('ENOENT');
+    });
     const proc = createMockPtyProcess();
     mockSpawn.mockReturnValue(proc);
 
@@ -414,11 +420,11 @@ describe('resolveWindowsShell', () => {
       });
     });
 
-    it('passes absolute extensionless paths through unchanged', () => {
+    it('wraps absolute extensionless paths with cmd.exe /c', () => {
       const result = resolveWindowsShell('C:\\tools\\claude', ['--help']);
       expect(result).toEqual({
-        shell: 'C:\\tools\\claude',
-        args: ['--help'],
+        shell: 'cmd.exe',
+        args: ['/c', 'C:\\tools\\claude', '--help'],
       });
     });
   } else {

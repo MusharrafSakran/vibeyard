@@ -131,21 +131,18 @@ export function resolveWindowsShell(
 ): { shell: string; args: string[] } {
   if (!isWin) return { shell, args };
   const ext = path.extname(shell).toLowerCase();
-  if (ext === '.cmd' || ext === '.bat') {
-    return { shell: 'cmd.exe', args: ['/c', shell, ...args] };
-  }
+  // .exe files can be spawned directly by CreateProcess
+  if (ext === '.exe') return { shell, args };
+  // .ps1 scripts need PowerShell
   if (ext === '.ps1') {
     return {
       shell: 'powershell.exe',
       args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', shell, ...args],
     };
   }
-  // Bare name (no extension) — also wrap with cmd.exe so it can resolve
-  // PATH and execute .cmd shims that CreateProcess cannot handle.
-  if (ext === '' && !path.isAbsolute(shell)) {
-    return { shell: 'cmd.exe', args: ['/c', shell, ...args] };
-  }
-  return { shell, args };
+  // Everything else (.cmd, .bat, bare names, extensionless paths):
+  // wrap with cmd.exe so CreateProcess doesn't choke on non-PE binaries.
+  return { shell: 'cmd.exe', args: ['/c', shell, ...args] };
 }
 
 export function spawnPty(

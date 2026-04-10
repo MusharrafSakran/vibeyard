@@ -1,9 +1,9 @@
-import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { execSync } from 'child_process';
 import { getFullPath } from '../pty-manager';
 import { isWin, whichCmd } from '../platform';
+import { fileExists } from '../fs-utils';
 
 const COMMON_BIN_DIRS = isWin
   ? [
@@ -29,13 +29,12 @@ function findBinaryInDir(dir: string, binaryName: string): string | null {
   if (isWin) {
     for (const ext of WIN_EXTENSIONS) {
       const candidate = path.join(dir, binaryName + ext);
-      try { if (fs.existsSync(candidate)) return candidate; } catch {}
+      if (fileExists(candidate)) return candidate;
     }
     return null;
   }
   const candidate = path.join(dir, binaryName);
-  try { if (fs.existsSync(candidate)) return candidate; } catch {}
-  return null;
+  return fileExists(candidate) ? candidate : null;
 }
 
 function whichBinary(binaryName: string, envPath: string): string | null {
