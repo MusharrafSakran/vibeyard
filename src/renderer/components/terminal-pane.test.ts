@@ -154,7 +154,7 @@ class FakeDocument {
   }
 }
 
-const mockClipboardWrite = vi.fn();
+const mockClipboardWrite = vi.fn().mockResolvedValue(undefined);
 
 function makeWindowStub() {
   return {
