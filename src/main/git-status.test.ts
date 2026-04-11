@@ -170,6 +170,16 @@ describe('getGitDiff', () => {
     expect(diff).toContain('+line2');
   });
 
+  it('passes absolute filePath through unchanged for untracked files', async () => {
+    mockReadFileSync.mockReturnValue('x\n');
+
+    await getGitDiff('/cwd', '/abs/new.ts', 'untracked');
+    expect(mockReadFileSync).toHaveBeenLastCalledWith('/abs/new.ts', 'utf-8');
+
+    await getGitDiff('/cwd', 'C:\\abs\\new.ts', 'untracked');
+    expect(mockReadFileSync).toHaveBeenLastCalledWith('C:\\abs\\new.ts', 'utf-8');
+  });
+
   it('returns error message when untracked file cannot be read', async () => {
     mockReadFileSync.mockImplementationOnce(() => { throw new Error('ENOENT'); });
     const diff = await getGitDiff('/test', 'missing.ts', 'untracked');

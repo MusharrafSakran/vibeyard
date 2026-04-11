@@ -2,6 +2,7 @@ import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { GitWorktree, GitFileEntry } from '../shared/types';
+import { isAbsolutePath } from '../shared/platform';
 
 export type { GitWorktree, GitFileEntry } from '../shared/types';
 
@@ -91,7 +92,7 @@ export function getGitDiff(cwd: string, filePath: string, area: string): Promise
   return new Promise((resolve) => {
     if (area === 'untracked') {
       // Read file content and format as "all added" diff
-      const fullPath = path.join(cwd, filePath);
+      const fullPath = isAbsolutePath(filePath) ? filePath : path.join(cwd, filePath);
       try {
         const content = fs.readFileSync(fullPath, 'utf-8');
         const lines = content.split('\n');
@@ -241,7 +242,7 @@ export function gitUnstageFile(cwd: string, filePath: string): Promise<void> {
 
 export function gitDiscardFile(cwd: string, filePath: string, area: GitFileEntry['area']): Promise<void> {
   if (area === 'untracked') {
-    const fullPath = path.join(cwd, filePath);
+    const fullPath = isAbsolutePath(filePath) ? filePath : path.join(cwd, filePath);
     return fs.promises.unlink(fullPath);
   }
   return execGit(cwd, ['checkout', '--', filePath]);

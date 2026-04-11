@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { basename, lastSeparatorIndex } from './platform';
+import { basename, isAbsolutePath, lastSeparatorIndex } from './platform';
 
 describe('basename', () => {
   it('extracts last segment from POSIX paths', () => {
@@ -33,6 +33,42 @@ describe('basename', () => {
   it('handles root paths', () => {
     expect(basename('/')).toBe('');
     expect(basename('C:\\')).toBe('C:');
+  });
+});
+
+describe('isAbsolutePath', () => {
+  it('recognizes POSIX absolute paths', () => {
+    expect(isAbsolutePath('/home/user/x')).toBe(true);
+    expect(isAbsolutePath('/')).toBe(true);
+  });
+
+  it('recognizes Windows drive-letter paths', () => {
+    expect(isAbsolutePath('C:\\Users\\me')).toBe(true);
+    expect(isAbsolutePath('c:/Users/me')).toBe(true);
+    expect(isAbsolutePath('D:\\dev')).toBe(true);
+    expect(isAbsolutePath('z:/x')).toBe(true);
+  });
+
+  it('recognizes UNC / rooted backslash paths', () => {
+    expect(isAbsolutePath('\\\\server\\share\\x')).toBe(true);
+    expect(isAbsolutePath('//server/share/x')).toBe(true);
+    expect(isAbsolutePath('\\foo')).toBe(true);
+  });
+
+  it('rejects relative paths', () => {
+    expect(isAbsolutePath('src\\main\\x.ts')).toBe(false);
+    expect(isAbsolutePath('./x')).toBe(false);
+    expect(isAbsolutePath('x.ts')).toBe(false);
+    expect(isAbsolutePath('home/x')).toBe(false);
+  });
+
+  it('rejects drive letter without separator', () => {
+    expect(isAbsolutePath('C:')).toBe(false);
+    expect(isAbsolutePath('C:file')).toBe(false);
+  });
+
+  it('rejects empty string', () => {
+    expect(isAbsolutePath('')).toBe(false);
   });
 });
 

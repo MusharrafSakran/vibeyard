@@ -3,6 +3,7 @@ import DOMPurify from 'dompurify';
 import { appState } from '../state.js';
 import { destroySearchBar } from './search-bar.js';
 import { escapeHtml } from './dom-search-backend.js';
+import { isAbsolutePath } from '../../shared/platform.js';
 
 interface FileReaderInstance {
   element: HTMLElement;
@@ -93,7 +94,7 @@ function renderBody(instance: FileReaderInstance): void {
 
 function resolveFilePath(instance: FileReaderInstance): string {
   const project = appState.activeProject;
-  if (instance.filePath.startsWith('/')) return instance.filePath;
+  if (isAbsolutePath(instance.filePath)) return instance.filePath;
   return project ? `${project.path}/${instance.filePath}` : instance.filePath;
 }
 
